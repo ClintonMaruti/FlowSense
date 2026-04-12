@@ -1,2 +1,1 @@
-##FlowSense
-Waste less, save more
+FlowSense
