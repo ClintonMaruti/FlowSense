@@ -1,0 +1,5 @@
+{
+  "name": "FlowSense - Smart Water Monitoring",
+  "description": "A simulation-based smart water management system for detecting leaks, monitoring usage, and predicting bills.",
+  "requestFramePermissions": []
+}
