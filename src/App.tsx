@@ -12,7 +12,10 @@ import {
   Pause,
   RefreshCw,
   Info,
-  X
+  X,
+  Bell,
+  ShieldAlert,
+  Gauge
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -116,10 +119,19 @@ export default function App() {
   const [activeLeaks, setActiveLeaks] = useState<string[]>([]);
   const [liveFlow, setLiveFlow] = useState<{time: string, flow: number}[]>([]);
   const [simulatedDate, setSimulatedDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<'home' | 'flow' | 'history'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'flow' | 'history' | 'settings'>('home');
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [alertSettings, setAlertSettings] = useState({
+    enableLeakAlerts: true,
+    enableLargeUsageAlerts: true,
+    leakThreshold: 0.15, // L/h
+    usageThreshold: 50,  // Liters
+  });
 
   const addNotification = (title: string, message: string, type: AppNotification['type'] = 'warning') => {
+    if (type === 'error' && !alertSettings.enableLeakAlerts) return;
+    if (type === 'warning' && !alertSettings.enableLargeUsageAlerts) return;
+    
     const id = Math.random().toString(36).substr(2, 9);
     const newNotif: AppNotification = { id, title, message, type, timestamp: new Date() };
     setNotifications(prev => [newNotif, ...prev].slice(0, 5));
@@ -191,6 +203,13 @@ export default function App() {
             }
 
             if (used) {
+              if (amount > alertSettings.usageThreshold) {
+                addNotification(
+                  "High Usage Detected", 
+                  `${app.name} consumed ${Math.round(amount)}L in one go.`,
+                  'warning'
+                );
+              }
               newRecords.push({
                 timestamp: nextDate,
                 applianceId: app.id,
@@ -345,6 +364,11 @@ export default function App() {
             size={24} 
             onClick={() => setCurrentView('history')}
             className={`cursor-pointer transition-colors ${currentView === 'history' ? 'text-blue-600' : 'hover:text-blue-600'}`} 
+          />
+          <Settings 
+            size={24} 
+            onClick={() => setCurrentView('settings')}
+            className={`cursor-pointer transition-colors ${currentView === 'settings' ? 'text-blue-600' : 'hover:text-blue-600'}`} 
           />
         </div>
       </nav>
@@ -590,6 +614,113 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {currentView === 'settings' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-8"
+              >
+                <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="p-3 bg-blue-100 text-blue-600 rounded-2xl">
+                      <Settings size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-800">Alert Preferences</h2>
+                      <p className="text-slate-500 text-sm">Configure how and when you want to be notified</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Notification Toggles */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-slate-700 flex items-center gap-2">
+                        <Bell size={20} className="text-slate-400" />
+                        Notification Channels
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                          <div>
+                            <p className="font-bold text-slate-800 text-sm">Leak Alerts</p>
+                            <p className="text-slate-500 text-xs">Notify when a leak is detected</p>
+                          </div>
+                          <button 
+                            onClick={() => setAlertSettings(s => ({...s, enableLeakAlerts: !s.enableLeakAlerts}))}
+                            className={`w-12 h-6 rounded-full transition-colors relative ${alertSettings.enableLeakAlerts ? 'bg-blue-600' : 'bg-slate-300'}`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${alertSettings.enableLeakAlerts ? 'left-7' : 'left-1'}`} />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                          <div>
+                            <p className="font-bold text-slate-800 text-sm">High Usage Alerts</p>
+                            <p className="text-slate-500 text-xs">Notify when usage exceeds threshold</p>
+                          </div>
+                          <button 
+                            onClick={() => setAlertSettings(s => ({...s, enableLargeUsageAlerts: !s.enableLargeUsageAlerts}))}
+                            className={`w-12 h-6 rounded-full transition-colors relative ${alertSettings.enableLargeUsageAlerts ? 'bg-blue-600' : 'bg-slate-300'}`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${alertSettings.enableLargeUsageAlerts ? 'left-7' : 'left-1'}`} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <hr className="border-slate-100" />
+
+                    {/* Thresholds */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-slate-700 flex items-center gap-2">
+                        <ShieldAlert size={20} className="text-slate-400" />
+                        Detection Thresholds
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                          <label className="text-sm font-bold text-slate-600 flex justify-between">
+                            Leak Sensitivity <span>{alertSettings.leakThreshold.toFixed(2)} L/h</span>
+                          </label>
+                          <input 
+                            type="range" 
+                            min="0.05" 
+                            max="0.5" 
+                            step="0.01"
+                            value={alertSettings.leakThreshold}
+                            onChange={(e) => setAlertSettings(s => ({...s, leakThreshold: parseFloat(e.target.value)}))}
+                            className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                          />
+                          <p className="text-[10px] text-slate-400">Lower values detect smaller leaks faster, but may cause false alarms.</p>
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-sm font-bold text-slate-600 flex justify-between">
+                            High Usage Warning <span>{alertSettings.usageThreshold} Liters</span>
+                          </label>
+                          <input 
+                            type="range" 
+                            min="10" 
+                            max="200" 
+                            step="10"
+                            value={alertSettings.usageThreshold}
+                            onChange={(e) => setAlertSettings(s => ({...s, usageThreshold: parseInt(e.target.value)}))}
+                            className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                          />
+                          <p className="text-[10px] text-slate-400">Triggers a warning when an appliance uses more than this amount in one go.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-6">
+                      <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3 items-start">
+                        <Info size={18} className="text-amber-500 mt-0.5 shrink-0" />
+                        <p className="text-xs text-amber-700 leading-relaxed">
+                          Settings are saved locally to this device. These thresholds help the AI differentiate between normal high-velocity usage (like a bath filling) and persistent faults.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             )}
           </div>
 
