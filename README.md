@@ -1,13 +1,20 @@
-# FlowSense (Simulation Version)
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-The modern household lacks real-time granular visibility into water consumption patterns which causes inefficiency, unchecked water waste and unexpected utility costs. Flowsense is a smart water usage monitoring and prediction system that solves this problem by modelling a household as a network of distinct water consumers, integrating real-time leak detection and implements predictive forecasting to enable consumers to be environmentally conscious.
+# Run and deploy your AI Studio app
 
-To run this simulation:
+This contains everything you need to run your app locally.
 
-1.Visit https://flow-sense-2.vercel.app/
+View your app in AI Studio: https://ai.studio/apps/d48601c2-0ea0-465b-a608-31292014142f
 
-2. Click the refresh button to clear the previous simulation data
+## Run Locally
 
-3. Click the 'Start Simulation' button to simulate the water flow
-   
-4. You can also toggle the appliance sensors buttons to simulate the leaks for the appliances in the household
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

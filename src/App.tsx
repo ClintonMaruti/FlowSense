@@ -11,7 +11,8 @@ import {
   Play,
   Pause,
   RefreshCw,
-  Info
+  Info,
+  X
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -31,6 +32,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format, subDays, startOfDay, addDays, subHours, startOfHour, eachHourOfInterval, eachDayOfInterval, startOfWeek, endOfWeek, eachWeekOfInterval, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
 import { createHousehold, UNIT_PRICE_KSH, LITERS_PER_UNIT } from './constants';
 import { WaterAppliance, UsageRecord, ApplianceType, DiscreteAppliance, ContinuousAppliance } from './models';
+
+// --- Types ---
+interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'error' | 'success' | 'warning';
+  timestamp: Date;
+}
 
 // --- Components ---
 
@@ -59,6 +69,45 @@ const StatCard = ({ title, value, unit, icon: Icon, color, trend }: any) => (
   </motion.div>
 );
 
+interface NotificationToastProps {
+  notification: AppNotification;
+  onDismiss: (id: string) => void;
+  key?: any;
+}
+
+const NotificationToast = ({ notification, onDismiss }: NotificationToastProps) => (
+  <motion.div
+    initial={{ x: 300, opacity: 0 }}
+    animate={{ x: 0, opacity: 1 }}
+    exit={{ x: 300, opacity: 0 }}
+    className="bg-white border-l-4 border-red-500 shadow-xl rounded-xl p-4 flex gap-4 w-80 items-start relative overflow-hidden group"
+  >
+    <div className="bg-red-50 p-2 rounded-lg text-red-600">
+      <AlertTriangle size={20} />
+    </div>
+    <div className="flex-1 min-w-0">
+      <h4 className="font-bold text-slate-800 text-sm truncate">{notification.title}</h4>
+      <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">{notification.message}</p>
+      <span className="text-[10px] text-slate-400 mt-2 block font-mono">{format(notification.timestamp, 'HH:mm:ss')}</span>
+    </div>
+    <button 
+      onClick={() => onDismiss(notification.id)}
+      className="text-slate-300 hover:text-slate-500 transition-colors"
+    >
+      <X size={16} />
+    </button>
+    <div className="absolute bottom-0 left-0 h-1 bg-red-100 w-full">
+      <motion.div 
+        initial={{ width: '100%' }}
+        animate={{ width: '0%' }}
+        transition={{ duration: 5, ease: 'linear' }}
+        onAnimationComplete={() => onDismiss(notification.id)}
+        className="h-full bg-red-500"
+      />
+    </div>
+  </motion.div>
+);
+
 export default function App() {
   const [appliances] = useState<WaterAppliance[]>(createHousehold());
   const [usageHistory, setUsageHistory] = useState<UsageRecord[]>([]);
@@ -68,35 +117,28 @@ export default function App() {
   const [liveFlow, setLiveFlow] = useState<{time: string, flow: number}[]>([]);
   const [simulatedDate, setSimulatedDate] = useState(new Date());
   const [currentView, setCurrentView] = useState<'home' | 'flow' | 'history'>('home');
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
-  // Pre-populate some data for demonstration
-  const generateInitialData = () => {
-    const initialData: UsageRecord[] = [];
-    const now = new Date();
-    for (let i = 0; i < 30 * 24; i++) {
-      const date = subHours(now, i);
-      const hour = date.getHours();
-      const isPeak = (hour >= 6 && hour <= 9) || (hour >= 18 && hour <= 21);
-      
-      appliances.forEach(app => {
-        const baseProb = isPeak ? 0.15 : 0.05;
-        if (Math.random() < baseProb) {
-          initialData.push({
-            timestamp: date,
-            applianceId: app.id,
-            applianceName: app.name,
-            amount: Math.random() * 10 + 2,
-            isLeak: false
-          });
-        }
-      });
+  const addNotification = (title: string, message: string, type: AppNotification['type'] = 'warning') => {
+    const id = Math.random().toString(36).substr(2, 9);
+    const newNotif: AppNotification = { id, title, message, type, timestamp: new Date() };
+    setNotifications(prev => [newNotif, ...prev].slice(0, 5));
+    
+    // Also try Browser Notification
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body: message });
     }
-    return initialData;
+  };
+
+  const dismissNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   useEffect(() => {
-    setUsageHistory(generateInitialData());
-  }, [appliances]);
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const resetData = () => {
     setUsageHistory([]);
@@ -118,6 +160,16 @@ export default function App() {
           let currentTickFlow = 0;
 
           appliances.forEach(app => {
+            // Randomly trigger a leak during simulation
+            if (!activeLeaks.includes(app.id) && Math.random() < 0.005) {
+              setActiveLeaks(prev => [...prev, app.id]);
+              addNotification(
+                "Critical Alert: Potential Pipe Burst!", 
+                `Sudden pressure drop detected in the ${app.name} supply line. Immediate inspection advised.`,
+                'error'
+              );
+            }
+
             let used = false;
             let amount = 0;
 
@@ -197,6 +249,18 @@ export default function App() {
     return units * UNIT_PRICE_KSH;
   }, [totalUsage]);
 
+  const applianceLeakStats = useMemo(() => {
+    const stats: Record<string, { rate: number, total: number }> = {};
+    activeLeaks.forEach(id => {
+      const applianceUsage = usageHistory.filter(r => r.applianceId === id && r.isLeak);
+      const totalLost = applianceUsage.reduce((acc, r) => acc + r.amount, 0);
+      const lastRecord = applianceUsage[applianceUsage.length - 1];
+      const rate = lastRecord ? lastRecord.amount : 0;
+      stats[id] = { rate, total: totalLost };
+    });
+    return stats;
+  }, [usageHistory, activeLeaks]);
+
   const getChartData = (view: 'hourly' | 'daily' | 'weekly' | 'monthly') => {
     const data = [];
     if (view === 'hourly') {
@@ -245,9 +309,18 @@ export default function App() {
   const monthlyData = useMemo(() => getChartData('monthly'), [usageHistory, simulatedDate]);
 
   const toggleLeak = (id: string) => {
-    setActiveLeaks(prev => 
-      prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]
-    );
+    const appliance = appliances.find(a => a.id === id);
+    setActiveLeaks(prev => {
+      const isActivating = !prev.includes(id);
+      if (isActivating && appliance) {
+        addNotification(
+          "Leak Detected!", 
+          `Abnormal flow detected in ${appliance.name}. Check for open faucets or pipe damage.`,
+          'error'
+        );
+      }
+      return isActivating ? [...prev, id] : prev.filter(l => l !== id);
+    });
   };
 
   return (
@@ -276,23 +349,44 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Notifications Layer */}
+      <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3">
+        <AnimatePresence>
+          {notifications.map(notif => (
+            <NotificationToast 
+              key={notif.id} 
+              notification={notif} 
+              onDismiss={dismissNotification} 
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+
       {/* Main Content */}
       <main className="md:ml-20 p-4 md:p-8 max-w-7xl mx-auto">
         {/* Header */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">FlowSense Dashboard</h1>
-            <div className="flex items-center gap-2 mt-1 text-slate-500 text-sm">
-              <RefreshCw 
-                size={14} 
-                onClick={resetData}
-                className={`cursor-pointer hover:text-blue-600 transition-colors ${isSimulating ? "animate-spin" : ""}`} 
-              />
-              Simulated Time: <span className="font-mono font-bold text-blue-600">{format(simulatedDate, 'PPP HH:mm')}</span>
+            <h1 className="text-3xl font-bold text-slate-800">FlowSense</h1>
+            <p className="text-slate-400 text-sm font-normal">Waste less, Save more</p>
+            <div className="mt-2 space-y-0.5">
+              <p className="text-slate-500 text-sm">
+                Date: <span className="font-mono font-bold text-blue-600">{format(simulatedDate, 'PPP')}</span>
+              </p>
+              <p className="text-slate-500 text-sm">
+                Time: <span className="font-mono font-bold text-blue-600">{format(simulatedDate, 'HH:mm')}</span>
+              </p>
             </div>
           </div>
           
           <div className="flex items-center gap-3 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+            <button 
+              onClick={resetData}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all bg-slate-100 text-slate-700 hover:bg-slate-200"
+            >
+              <RefreshCw size={18} className={isSimulating ? "animate-spin" : ""} />
+              Reset Data
+            </button>
             <button 
               onClick={() => setIsSimulating(!isSimulating)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all ${
@@ -326,7 +420,6 @@ export default function App() {
               unit="Liters" 
               icon={Droplets} 
               color="bg-blue-500"
-              trend={12}
             />
             <StatCard 
               title="Active Leaks" 
@@ -567,6 +660,22 @@ export default function App() {
                             <AlertTriangle size={18} />
                           </button>
                         </div>
+                        {activeLeaks.includes(app.id) && applianceLeakStats[app.id] && (
+                          <div className="mt-4 pt-4 border-t border-red-100 grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-red-400 font-bold">Leak Rate</p>
+                              <p className="text-sm font-bold text-red-600">
+                                {applianceLeakStats[app.id].rate.toFixed(1)} <span className="text-[10px] font-normal">L/h</span>
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-red-400 font-bold">Volume Lost</p>
+                              <p className="text-sm font-bold text-red-600">
+                                {applianceLeakStats[app.id].total.toFixed(1)} <span className="text-[10px] font-normal">Liters</span>
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
