@@ -34,7 +34,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { format, subDays, startOfDay, addDays, subHours, startOfHour, eachHourOfInterval, eachDayOfInterval, startOfWeek, endOfWeek, eachWeekOfInterval, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
 import { createHousehold, UNIT_PRICE_KSH, LITERS_PER_UNIT } from './constants';
-import { WaterAppliance, UsageRecord, ApplianceType, DiscreteAppliance, ContinuousAppliance } from './models';
+import { WaterAppliance, UsageRecord, ApplianceType, DiscreteAppliance, ContinuousAppliance, WaterSensor } from './models';
 
 // --- Types ---
 interface AppNotification {
@@ -121,12 +121,60 @@ export default function App() {
   const [simulatedDate, setSimulatedDate] = useState(new Date());
   const [currentView, setCurrentView] = useState<'home' | 'flow' | 'history' | 'settings'>('home');
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [aiFindings, setAiFindings] = useState<Record<string, { type: string, confidence: number }>>({});
   const [alertSettings, setAlertSettings] = useState({
     enableLeakAlerts: true,
     enableLargeUsageAlerts: true,
     leakThreshold: 0.15, // L/h
     usageThreshold: 50,  // Liters
   });
+
+  const sensor = useMemo(() => new WaterSensor('main', alertSettings.leakThreshold), [alertSettings.leakThreshold]);
+
+  // Sync appliance leak states
+  useEffect(() => {
+    appliances.forEach(app => {
+      app.setLeak(activeLeaks.includes(app.id));
+    });
+  }, [activeLeaks, appliances]);
+
+  // AI Leak Detection Logic
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      if (usageHistory.length < 20) return;
+
+      appliances.forEach(app => {
+        // Skip if already flagged as an active leak (user already knows)
+        if (activeLeaks.includes(app.id)) return;
+
+        const appHistory = usageHistory
+          .filter(r => r.applianceId === app.id)
+          .map(r => r.amount)
+          .slice(-48); // Analyze last 48 hours
+
+        const analysis = sensor.analyzeFlow(appHistory);
+        if (analysis.isLeak && analysis.confidence > 0.8) {
+          // Check if we already found this to avoid notification spam
+          if (!aiFindings[app.id]) {
+            addNotification(
+              "AI Insight: Unusual Pattern",
+              `Our AI detected a ${analysis.type} flow pattern in ${app.name} that strongly matches a leak signature.`,
+              'warning'
+            );
+          }
+          setAiFindings(prev => ({ ...prev, [app.id]: { type: analysis.type, confidence: analysis.confidence } }));
+        } else {
+          setAiFindings(prev => {
+            if (!prev[app.id]) return prev;
+            const next = { ...prev };
+            delete next[app.id];
+            return next;
+          });
+        }
+      });
+    }, 10000); // Check every 10 seconds of real time
+    return () => clearInterval(checkInterval);
+  }, [usageHistory, appliances, activeLeaks, sensor]);
 
   const addNotification = (title: string, message: string, type: AppNotification['type'] = 'warning') => {
     if (type === 'error' && !alertSettings.enableLeakAlerts) return;
@@ -221,7 +269,7 @@ export default function App() {
             }
 
             if (activeLeaks.includes(app.id)) {
-              const leakAmount = 0.2 + (Math.random() * 0.1);
+              const leakAmount = app.getLeakUsage(1); // 1 hour tick
               newRecords.push({
                 timestamp: nextDate,
                 applianceId: app.id,
@@ -776,7 +824,15 @@ export default function App() {
                       >
                         <div className="flex justify-between items-center">
                           <div>
-                            <p className="font-bold text-slate-800">{app.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-slate-800">{app.name}</p>
+                              {aiFindings[app.id] && !activeLeaks.includes(app.id) && (
+                                <span className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded-md font-bold flex items-center gap-1 animate-pulse">
+                                  <ShieldAlert size={10} />
+                                  AI FLAG
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-slate-500">{app.location}</p>
                           </div>
                           <button 
