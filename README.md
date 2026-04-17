@@ -4,3 +4,4 @@ FlowSense is a smart water usage monitoring and prediction system that aims to p
 
 ##
 
+To test the simulation, visit https://flow-sense-2.vercel.app/
