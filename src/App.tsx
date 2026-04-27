@@ -33,7 +33,7 @@ import { format, subDays, startOfDay, addDays, subHours, startOfHour, eachHourOf
 import { createHousehold, UNIT_PRICE_KSH, LITERS_PER_UNIT } from './constants';
 import { WaterAppliance, UsageRecord, ApplianceType, DiscreteAppliance, ContinuousAppliance } from './models';
 
-// --- Components ---
+// -- Components --
 
 const StatCard = ({ title, value, unit, icon: Icon, color, trend }: any) => (
   <motion.div 
