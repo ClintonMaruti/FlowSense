@@ -1,4 +1,5 @@
 {
+  
   "short_name": "FlowSense",
   "name": "FlowSense - Smart Water Monitoring",
   "description": "Real-time water monitoring and leak detection for your home.",
@@ -18,4 +19,5 @@
   "background_color": "#ffffff",
   "display": "standalone",
   "theme_color": "#2563eb"
+  
 }
