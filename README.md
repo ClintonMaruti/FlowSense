@@ -8,3 +8,4 @@ To test the simulation:
 2. Click on the 'Start Simulation' button (you can adjust the simulation speed by selecting the preferred speed on the drop-down menu.
 
 3. You can reset the simulation by clicking the 'Reset Data' button and start the simulation afresh.
+
