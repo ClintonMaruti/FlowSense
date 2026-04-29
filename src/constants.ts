@@ -41,3 +41,4 @@ export const createHousehold = (): WaterAppliance[] => {
 
 export const UNIT_PRICE_KSH = 200; // 1 unit = 1000L = 200 Ksh
 export const LITERS_PER_UNIT = 1000;
+
