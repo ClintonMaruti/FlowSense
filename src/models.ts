@@ -88,3 +88,4 @@ export interface UsageRecord {
   amount: number; // Liters
   isLeak: boolean;
 }
+
