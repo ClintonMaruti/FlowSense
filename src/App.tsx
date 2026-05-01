@@ -605,7 +605,7 @@ export default function App() {
         {/* Recent Activity */}
         <div className="mt-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <h2 className="text-xl font-bold text-slate-800 mb-6">Live Sensor Feed</h2>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-hidden">
             <table className="w-full text-left">
               <thead>
                 <tr className="text-slate-400 text-sm border-b border-slate-100">
@@ -620,9 +620,9 @@ export default function App() {
                   {usageHistory.slice(-5).reverse().map((record, idx) => (
                     <motion.tr 
                       key={`${record.timestamp.getTime()}-${idx}`}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
                       className="border-b border-slate-50 last:border-0"
                     >
                       <td className="py-4 text-sm text-slate-500">{format(record.timestamp, 'HH:mm:ss')}</td>
