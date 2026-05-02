@@ -605,7 +605,7 @@ export default function App() {
         {/* Recent Activity */}
         <div className="mt-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <h2 className="text-xl font-bold text-slate-800 mb-6">Live Sensor Feed</h2>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-hidden">
             <table className="w-full text-left">
               <thead>
                 <tr className="text-slate-400 text-sm border-b border-slate-100">
@@ -633,6 +633,28 @@ export default function App() {
                     </td>
                   </tr>
                 ))}
+                <AnimatePresence mode="popLayout">
+                  {usageHistory.slice(-5).reverse().map((record, idx) => (
+                    <motion.tr 
+                      key={`${record.timestamp.getTime()}-${idx}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="border-b border-slate-50 last:border-0"
+                    >
+                      <td className="py-4 text-sm text-slate-500">{format(record.timestamp, 'HH:mm:ss')}</td>
+                      <td className="py-4 font-medium text-slate-800">{record.applianceName}</td>
+                      <td className="py-4 text-sm font-bold text-blue-600">{record.amount.toFixed(1)} L</td>
+                      <td className="py-4">
+                        <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md ${
+                          record.isLeak ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                        }`}>
+                          {record.isLeak ? 'Leak' : 'Usage'}
+                        </span>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
                 {usageHistory.length === 0 && (
                   <tr>
                     <td colSpan={4} className="py-10 text-center text-slate-400 italic">
