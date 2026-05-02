@@ -616,28 +616,23 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                <AnimatePresence mode="popLayout">
-                  {usageHistory.slice(-5).reverse().map((record, idx) => (
-                    <motion.tr 
-                      key={`${record.timestamp.getTime()}-${idx}`}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      className="border-b border-slate-50 last:border-0"
-                    >
-                      <td className="py-4 text-sm text-slate-500">{format(record.timestamp, 'HH:mm:ss')}</td>
-                      <td className="py-4 font-medium text-slate-800">{record.applianceName}</td>
-                      <td className="py-4 text-sm font-bold text-blue-600">{record.amount.toFixed(1)} L</td>
-                      <td className="py-4">
-                        <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md ${
-                          record.isLeak ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
-                        }`}>
-                          {record.isLeak ? 'Leak' : 'Usage'}
-                        </span>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
+                {usageHistory.slice(-5).reverse().map((record, idx) => (
+                  <tr 
+                    key={`${record.timestamp.getTime()}-${idx}`}
+                    className="border-b border-slate-50 last:border-0"
+                  >
+                    <td className="py-4 text-sm text-slate-500">{format(record.timestamp, 'HH:mm:ss')}</td>
+                    <td className="py-4 font-medium text-slate-800">{record.applianceName}</td>
+                    <td className="py-4 text-sm font-bold text-blue-600">{record.amount.toFixed(1)} L</td>
+                    <td className="py-4">
+                      <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md ${
+                        record.isLeak ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                      }`}>
+                        {record.isLeak ? 'Leak' : 'Usage'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
                 {usageHistory.length === 0 && (
                   <tr>
                     <td colSpan={4} className="py-10 text-center text-slate-400 italic">
